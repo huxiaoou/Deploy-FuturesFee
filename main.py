@@ -13,6 +13,27 @@ def cal_rate(rate: str, price: float, mulitplier: float) -> float:
     return 0.00
 
 
+def cal_impact_rate(spread: str, price: float) -> float:
+    if spread.endswith("元/吨"):
+        return float(spread[:-3]) / price / 2 * 10000
+    return 0.00
+
+
+def summary(df: pd.DataFrame, rate_names: list[str]):
+    res = {}
+    for rate_name in rate_names:
+        res[rate_name] = {
+            "mean": df[rate_name].mean(),
+            "max": df[rate_name].max(),
+            "q75": df[rate_name].quantile(0.75),
+            "q50": df[rate_name].quantile(0.50),
+            "q25": df[rate_name].quantile(0.25),
+            "min": df[rate_name].min(),
+        }
+    print(pd.DataFrame(res).T)
+    return
+
+
 def main():
     drop_list = [
         "IF.CFE",
@@ -44,33 +65,27 @@ def main():
 
     source_file = "全部国内主力合约.xlsx"
     df = pd.read_excel(source_file, dtype=str)
-    df.columns = ["code", "name", "fee_rate", "fee_rate_td", "price", "mulitplier"]
+    df.columns = ["code", "name", "fee_rate", "fee_rate_td", "price", "mulitplier", "spread"]
     df = df.dropna(axis=0, how="any", subset="name")
 
     df["to_drop"] = df["code"].apply(lambda x: re.sub(r"\d", "", x) in drop_list)
     df = df[df["to_drop"] == False].drop(columns=["to_drop"])
 
+    # --- aver_rate ---
     df["open_rate"] = df.apply(lambda x: cal_rate(x["fee_rate"], float(x["price"]), float(x["mulitplier"])), axis=1)
     df["close_rate"] = df.apply(lambda x: cal_rate(x["fee_rate_td"], float(x["price"]), float(x["mulitplier"])), axis=1)
-    df["aver_rate"] = (df["open_rate"] + df["close_rate"]) / 2
-    df = df.sort_values(by="aver_rate", ascending=False).reset_index(drop=True)
-    # df = df.sort_values(by="code", ascending=False).reset_index(drop=True)
+    df["aver_fee_rate"] = (df["open_rate"] + df["close_rate"]) / 2
+
+    # --- impact_rate ---
+    df["impact_rate"] = df.apply(lambda x: cal_impact_rate(x["spread"], float(x["price"])), axis=1)
+
+    # --- total_rate ---
+    df["total_rate"] = df["aver_fee_rate"] + df["impact_rate"]
+
+    # --- display ---
+    df = df.sort_values(by="total_rate", ascending=False).reset_index(drop=True)
     print(df)
-
-    aver_rate_mean = df["aver_rate"].mean()
-    max_rate = df["aver_rate"].max()
-    q75_rate = df["aver_rate"].quantile(0.75)
-    q50_rate = df["aver_rate"].quantile(0.50)
-    q25_rate = df["aver_rate"].quantile(0.25)
-    min_rate = df["aver_rate"].min()
-
-    print("\n统计数据:")
-    print(f"平均费率: {aver_rate_mean:.2f}‰%")
-    print(f"最大费率: {max_rate:.2f}‰%")
-    print(f"75%分位数: {q75_rate:.2f}‰%")
-    print(f"50%分位数: {q50_rate:.2f}‰%")
-    print(f"25%分位数: {q25_rate:.2f}‰%")
-    print(f"最小费率: {min_rate:.2f}‰%")
+    summary(df, ["aver_fee_rate", "impact_rate", "total_rate"])
 
 
 if __name__ == "__main__":
