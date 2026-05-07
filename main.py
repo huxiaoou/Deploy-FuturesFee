@@ -14,8 +14,10 @@ def cal_rate(rate: str, price: float, mulitplier: float) -> float:
 
 
 def cal_impact_rate(spread: str, price: float) -> float:
-    if spread.endswith("元/吨"):
-        return float(spread[:-3]) / price / 2 * 10000
+    __unit_list = ["元/吨", "元/500千克", "元/立方米", "元(人民币)/桶", "元(人民币)/吨", "元/克", "元/千克"]
+    for unit in __unit_list:
+        if spread.endswith(unit):
+            return float(spread[: -len(unit)]) / price / 2 * 10000
     return 0.00
 
 
