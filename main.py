@@ -63,6 +63,7 @@ def main():
         "OP.SHF",
         "BB.DCE",
         "FB.DCE",
+        "LG.DCE",
     ]
 
     source_file = "全部国内主力合约.xlsx"
@@ -85,7 +86,7 @@ def main():
     df["total_rate"] = df["aver_fee_rate"] + df["impact_rate"]
 
     # --- display ---
-    df = df.sort_values(by="total_rate", ascending=False).reset_index(drop=True)
+    df = df.sort_values(by="impact_rate", ascending=False).reset_index(drop=True)
     print(df)
     summary(df, ["aver_fee_rate", "impact_rate", "total_rate"])
 
